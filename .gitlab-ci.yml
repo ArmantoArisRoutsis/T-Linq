@@ -1,0 +1,30 @@
+image: docker:latest
+
+variables:
+  ENV: prod
+  CI: gitlab+deploy-token-264486
+  CI2: x7VaYmRaJQqTkTC8EmSK
+  BUILD_ID: $CI_COMMIT_TAG
+
+services:
+  - docker:dind
+
+stages:
+  - deploy
+
+deploy_feature_branch:
+  stage: deploy
+  only:
+    - dev
+  before_script:
+    - apk add --update --no-cache jq py-pip
+    - pip install awscli
+  script:
+    - aws --version
+    - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+    - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+    - aws configure set default.region us-east-1
+    - $(aws ecr get-login --no-include-email --region us-east-1)
+    - docker build -t $AWS_ECS_URL:$CI_COMMIT_SHA .
+    - docker push $AWS_ECS_URL:$CI_COMMIT_SHA
+    - aws ecs update-service --cluster Linq-api --service linq-front-dev --force-new-deployment
